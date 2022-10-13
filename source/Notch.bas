@@ -3,7 +3,7 @@ Attribute VB_Name = "Notch"
 '   Макрос          : Notch
 '   Версия          : 2022.10.13
 '   Сайты           : https://vk.com/elvin_macro
-'                     https://github.com/elvin-nsk
+'                     https://github.com/elvin-nsk/Notch
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
 '===============================================================================
 
