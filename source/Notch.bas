@@ -1,7 +1,7 @@
 Attribute VB_Name = "Notch"
 '===============================================================================
 '   Макрос          : Notch
-'   Версия          : 2022.10.13
+'   Версия          : 2022.10.16
 '   Сайты           : https://vk.com/elvin_macro
 '                     https://github.com/elvin-nsk/Notch
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
@@ -14,13 +14,18 @@ Public Const RELEASE As Boolean = True
 '===============================================================================
 ' # константы пользователя
 
+'цвет основных линий
 Private Const PrimaryOutlinesColor As String = "RGB255,USER,0,0,255"
+
+'цвет примыкающих линий
 Private Const AjacentOutlinesColor As String = "RGB255,USER,255,0,0"
+
 Private Const NotchLength As Double = 3
 Private Const NotchWidth As Double = 1
 Private Const AdjacencyTolerance As Double = 0.5
-Private Const TextLayerName As String = "Text"
+Private Const TextLayerName As String = "PartID"
 Private Const TextColor As String = "RGB255,USER,255,127,0"
+Private Const TextSize As Double = 14
 
 '===============================================================================
 
@@ -139,10 +144,10 @@ Private Function MakeTextOnActivePage()
     Dim Shapes As ShapeRange
     Set Shapes = ActivePage.Shapes.All
     Dim Text As Shape
-    Set Text = ActivePage.CreateLayer(TextLayerName) _
+    Set Text = CreateOrFindLayer(ActivePage, TextLayerName) _
             .CreateArtisticText(0, 0, GetFileNameNoExt(ActiveDocument.FileName))
     Text.Fill.ApplyUniformFill CreateColor(TextColor)
-    Text.SetSize AverageDim(Shapes) / 2
+    Text.Text.Story.Size = TextSize
     Text.CenterX = Shapes.CenterX
     Text.CenterY = Shapes.CenterY
 End Function
@@ -165,6 +170,8 @@ Private Sub MakeNotchesOnActivePage(ByRef Params As typeNotchParams)
     
     Dim PrimaryShape As Shape
     Set PrimaryShape = PrimaryShapes.Combine
+    Dim LineWidth As Double
+    LineWidth = PrimaryShape.Outline.Width
     
     Dim AjacentShape As Shape
     Dim NotchesAndCuts As New Collection
@@ -177,15 +184,13 @@ Private Sub MakeNotchesOnActivePage(ByRef Params As typeNotchParams)
                 Params _
             )
     Next AjacentShape
-    
-    Dim PrimaryCutters As ShapeRange
-    Set PrimaryCutters = CreateShapeRange
+        
     Dim NotchAndCuts As structNotchAndCut
     For Each NotchAndCuts In NotchesAndCuts
         With NotchAndCuts
             If .Success Then
                 .Notch.Outline.Color.CopyAssign PrimaryOutlineColor
-                PrimaryCutters.Add .PrimaryCut
+                .Notch.Outline.Width = LineWidth
                 Trim .PrimaryCut, PrimaryShape
                 .PrimaryCut.Delete
                 .AjacentCut.Delete
@@ -237,7 +242,7 @@ Private Function MakeNotch( _
     
     Dim TempCrossPoints As Collection
     Set MakeNotch.PrimaryCut = _
-            ActiveLayer.CreateEllipse2( _
+            PrimaryShape.Layer.CreateEllipse2( _
                 AjacentNode.PositionX, _
                 AjacentNode.PositionY, _
                 Params.Width / 2 _
@@ -247,6 +252,7 @@ Private Function MakeNotch( _
                 MakeNotch.PrimaryCut.DisplayCurve, _
                 PrimaryShape.Curve _
             )
+    TryDeduplicateCrossPoints TempCrossPoints, Params
     If TempCrossPoints.Count < 2 Then
         MakeNotch.PrimaryCut.Delete
         Exit Function
@@ -256,7 +262,7 @@ Private Function MakeNotch( _
     
     Set MakeNotch.AjacentSubPath = AjacentSegment.SubPath
     Set MakeNotch.AjacentCut = _
-            ActiveLayer.CreateEllipse2( _
+            PrimaryShape.Layer.CreateEllipse2( _
                 AjacentNode.PositionX, _
                 AjacentNode.PositionY, _
                 Params.Length _
@@ -276,6 +282,38 @@ Private Function MakeNotch( _
     Set MakeNotch.Notch = DrawNotch(Point1, Point2, ApexPoint)
     
     MakeNotch.Success = True
+End Function
+
+Private Sub TryDeduplicateCrossPoints( _
+                ByRef ioCrossPoints As Collection, _
+                ByRef Params As typeNotchParams _
+            )
+    If ioCrossPoints.Count < 3 Then Exit Sub
+    Dim NewPoints As New Collection
+    Do While ioCrossPoints.Count > 0
+        If Not PointDuplicates(ioCrossPoints(1), ioCrossPoints, Params) Then
+            NewPoints.Add ioCrossPoints(1)
+        End If
+        ioCrossPoints.Remove 1
+    Loop
+    Set ioCrossPoints = NewPoints
+End Sub
+
+Private Function PointDuplicates( _
+                ByVal CrossPoint As IPoint, _
+                ByVal CrossPoints As Collection, _
+                ByRef Params As typeNotchParams _
+            ) As Boolean
+    If CrossPoints.Count < 2 Then Exit Function
+    Dim Point As IPoint
+    For Each Point In CrossPoints
+        If Not Point Is CrossPoint Then
+            If Point.GetDistanceFrom(CrossPoint) < Params.Tolerance Then
+                PointDuplicates = True
+                Exit Function
+            End If
+        End If
+    Next Point
 End Function
 
 Private Function DrawNotch( _

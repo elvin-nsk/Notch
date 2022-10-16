@@ -1,7 +1,7 @@
 Attribute VB_Name = "lib_elvin"
 '===============================================================================
 '   Модуль          : lib_elvin
-'   Версия          : 2022.10.13
+'   Версия          : 2022.10.16
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
 '   Использован код : dizzy (из макроса CtC), Alex Vakulenko
 '                     и др.
@@ -747,6 +747,17 @@ Public Function CreateBoundary(ByVal ShapeOrRange As Object) As Shape
     Exit Function
 Catch:
     Debug.Print Err.Number
+End Function
+
+'создаёт слой, если такой слой есть - возвращает этот слой
+Public Function CreateOrFindLayer( _
+                    ByVal Page As Page, _
+                    ByVal Name As String _
+                ) As Layer
+    Set CreateOrFindLayer = Page.Layers.Find(Name)
+    If CreateOrFindLayer Is Nothing Then
+        Set CreateOrFindLayer = Page.CreateLayer(Name)
+    End If
 End Function
 
 'инструмент Crop Tool
